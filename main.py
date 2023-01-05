@@ -7,6 +7,7 @@ from torch import save
 import torch
 
 # ! START CONFIG -------------------------------------
+
 app = FastAPI()
 
 origins = [
@@ -24,13 +25,15 @@ app.add_middleware(
 # ! END CONFIG -------------------------------------
 # ! START MODEL ------------------------------------
 # Load the model
+# Enable tracemalloc to track memory usage    
 try:
     model = torch.load("model.pt")
-    print("Model Successfull Loaded")
+    print("Model Successfully Loaded")
 except:
     model = SentenceTransformer('sentence-transformers/multi-qa-mpnet-base-dot-v1')
     print("Model Downloaded")
     torch.save(model, "model.pt")
+
 # ! END MODEL -------------------------------------
 # ! START FUNCTIONS -------------------------------------
 
