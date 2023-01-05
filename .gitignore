@@ -15,3 +15,5 @@ __pycache__/
 
 # Ignore PEM files
 *.pem
+
+model.pt

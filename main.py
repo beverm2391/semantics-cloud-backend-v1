@@ -3,6 +3,8 @@ from sentence_transformers import SentenceTransformer
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
+from torch import save
+import torch
 
 # ! START CONFIG -------------------------------------
 app = FastAPI()
@@ -22,7 +24,13 @@ app.add_middleware(
 # ! END CONFIG -------------------------------------
 # ! START MODEL ------------------------------------
 # Load the model
-model = SentenceTransformer('sentence-transformers/multi-qa-mpnet-base-dot-v1')
+try:
+    model = torch.load("model.pt")
+    print("Model Successfull Loaded")
+except:
+    model = SentenceTransformer('sentence-transformers/multi-qa-mpnet-base-dot-v1')
+    print("Model Downloaded")
+    torch.save(model, "model.pt")
 # ! END MODEL -------------------------------------
 # ! START FUNCTIONS -------------------------------------
 
