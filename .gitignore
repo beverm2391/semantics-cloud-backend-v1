@@ -1,0 +1,17 @@
+# Ignore virtual environments
+venv/
+env/
+venv_env/
+
+# Ignore compiled Python files
+*.pyc
+
+# Ignore Python bytecode files
+__pycache__/
+*.py[cod]
+
+# Ignore environment files
+.env
+
+# Ignore PEM files
+*.pem
