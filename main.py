@@ -20,7 +20,7 @@ app.add_middleware(
 )
 
 # ! END CONFIG -------------------------------------
-# ! START MODEL -------------------------------------
+# ! START MODEL ------------------------------------
 # Load the model
 model = SentenceTransformer('sentence-transformers/multi-qa-mpnet-base-dot-v1')
 # ! END MODEL -------------------------------------
