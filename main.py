@@ -26,7 +26,7 @@ model = SentenceTransformer('sentence-transformers/multi-qa-mpnet-base-dot-v1')
 # ! END MODEL -------------------------------------
 # ! START FUNCTIONS -------------------------------------
 
-def get_embedding(data: str) -> List[float]:
+async def get_embedding(data: str) -> List[float]:
     print("Generating Embedding")
     embedding = model.encode(data)
     print("Embedding Successful")
@@ -48,6 +48,6 @@ def get_embedding_info():
 
 @app.post("/embeddings")
 async def handle_embedding(data: Data):
-    print(data)
     embedding = await get_embedding(data.text)
-    return {"embedding": list(embedding)}
+    response_embedding = [str(x) for x in embedding]
+    return {"embedding": response_embedding}
