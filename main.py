@@ -5,6 +5,8 @@ from typing import List, Dict, Tuple
 import pickle
 import numpy as np
 import time
+import os
+from dotenv import load_dotenv
 
 # ! Get Embeddings Imports
 from sentence_transformers import SentenceTransformer
@@ -33,15 +35,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# load the tokenizer
-print("Loading Tokenizer...")
-tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
-print("Tokenizer Loaded")
+load_dotenv(".env")
+api_key = os.environ.get('OPENAI-API-KEY')
+openai.api_key = api_key
 
-# ! END CONFIG -------------------------------------
-# ! START MODEL ------------------------------------
-# Load the model
-# Enable tracemalloc to track memory usage    
+# ? Tokenizer
+try:
+    tokenizer = torch.load("tokenizer.pt")
+    print("Tokenizer Successfully Loaded")
+except:
+    tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+    print("Tokenizer Downloaded")
+    torch.save(tokenizer, "tokenizer.pt")
+
+# ? Embeddings Model
 try:
     model = torch.load("model.pt")
     print("Model Successfully Loaded")
@@ -50,7 +57,18 @@ except:
     print("Model Downloaded")
     torch.save(model, "model.pt")
 
-# ! END MODEL -------------------------------------
+# ? Load Documents
+documents_folder_path = "documents/"
+# load all filepaths in the documents folder
+documents = []
+# { 'name' : "document name", 'path' : "filepath"}
+for item in os.listdir(documents_folder_path):
+    item_path = os.path.join(documents_folder_path, item)
+    item_name = item.split(".")[0]
+    temp = {"name": item_name, "path": item_path}
+    documents.append(temp)
+
+# ! END CONFIG -------------------------------------
 # ! START CLASSES -------------------------------------
 class Text(BaseModel):
     text: str
@@ -63,11 +81,20 @@ class Query(BaseModel):
 # ! START FUNCTIONS -------------------------------------
 # ? START FUNCTION DEFINITION -------------------------------------
 # ! Generate Embeddings
-async def get_embedding(data: str, model) -> List[float]:
+def get_embedding(data: str, model) -> List[float]:
     print("Generating Embedding")
     embedding = model.encode(data)
     print("Embedding Successful")
     return embedding
+
+def find_path(doc_name: str) -> str:
+    for item in documents:
+        if item['name'] == doc_name:
+            return item['path']
+        print(f"FOLDER NAMES:")
+        print([doc['name'] for doc in documents])
+        print(f"SELECTED DOC NAME: {doc_name}")
+    raise ValueError("Document Not Found")
 
 # ! Load Doc
 def load_doc(fpath: str):
@@ -106,8 +133,7 @@ def dot_product_similarity(doc_data: List[Dict], query_data : Dict) -> List[Tupl
 def get_single_embedding(data: Dict) -> Dict:
     query = data['query']
     if 'embedding' not in data:
-        embedding = get_embedding(query)['embedding']
-        data['embedding'] = embedding
+        data['embedding'] = get_embedding(query, model)
     return data
 
 # ! Get Most Relevant Context Data
@@ -133,7 +159,6 @@ def get_context(query: str, doc_data : List[Dict]) -> List[Dict]:
         context.append(data)
 
     return context
-
 
 # ! Get Number of Tokens
 def get_tokens(text: str, tokenizer):
@@ -163,15 +188,15 @@ def get_formatted_context(context):
         formatted_text += f"PAGE: {page_no} - {text}\n\n"
         pages.append(page_no)
 
-        tokens = get_tokens(formatted_text)[0]
+        tokens = get_tokens(formatted_text, tokenizer)[0]
         # print(f"Current Context Tokens: {tokens}")
         if tokens > 2800:
             while tokens > 2800:
                 formatted_text = formatted_text[:-1000]
-                tokens = get_tokens(formatted_text)[0]
+                tokens = get_tokens(formatted_text, tokenizer)[0]
             break
     
-    print(f"Final Context Tokens: {get_tokens(formatted_text)[0]}")
+    print(f"Final Context Tokens: {get_tokens(formatted_text, tokenizer)[0]}")
     return formatted_text, pages
 
 # ! Build the Prompt
@@ -184,7 +209,7 @@ def build_prompt(query: str, context: List[Dict], *, examples=None) -> str:
     else:
         prompt = f"HEADER:\n{header}\n\nCONTEXT:\n{book_text}\n\nQUERY:\n{query}\n\nOUTPUT:\n"
     
-    tokens = get_tokens(prompt)
+    tokens = get_tokens(prompt, tokenizer)
     print(f"Prompt tokens: {tokens[0]}")
     return prompt, context_pages
 
@@ -201,7 +226,7 @@ def get_embedding_info():
 @app.post("/embeddings")
 async def handle_embedding(data: Text):
     embedding = await get_embedding(data.text, model)
-    response_embedding = [str(x) for x in embedding]
+    response_embedding = embedding.tolist()
     return {"embedding": response_embedding}
 
 @app.get("/tokens")
@@ -214,4 +239,35 @@ async def handle_tokens(data: Text):
     token_len = len(tokens)
     return {"tokens": token_len}
 
-# @app.get(f"/semantic-qa/{doc_name}")
+@app.get("/semantic-qa")
+def get_semantic_qa_info():
+    return {"message": "This endpoint expects a POST request with a JSON body containing a query and doc_name field. It returns a response to the query.", "availible_docs": [document['name'] for document in documents]}
+
+@app.post(f"/semantic-qa")
+async def handle_semantic_qa(data: Query, examples=None):
+    start = time.perf_counter()
+
+    fpath = find_path(data.doc_name)
+    doc_data = load_doc(fpath)
+    context = get_context(data.query, doc_data)
+    prompt, context_pages = build_prompt(data.query, context, examples=examples)
+    response = get_response(prompt)
+
+    elapsed = time.perf_counter() - start
+    tokens = get_tokens(prompt + response, tokenizer)[0]
+    est_cost = tokens / 1000 * 0.02
+
+    print(f"Query:\n{data.query}\n")
+    print(f"Response:\n{response}\n")
+    print("DEBUG:\n")
+    print(f"Context Pages: {context_pages}")
+    print(f"Time: {elapsed:.2f} seconds")
+    print(f"Total Tokens: {tokens}")
+    print(f"Cost: ${est_cost:.2f}")
+    rounded_cost = round(est_cost, 2)
+    rounded_time = round(elapsed, 2)
+    
+    # convert page numbers to strings
+    # context_pages = [str(page) for page in context_pages]
+
+    return {"time": rounded_time, "tokens": tokens, "cost": rounded_cost, "response": response, "context_pages": context_pages}
