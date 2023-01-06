@@ -52,8 +52,12 @@ except:
 
 # ! END MODEL -------------------------------------
 # ! START CLASSES -------------------------------------
-class Data(BaseModel):
+class Text(BaseModel):
     text: str
+
+class Query(BaseModel):
+    query: str
+    doc_name: str
 
 # ! END CLASSES -------------------------------------
 # ! START FUNCTIONS -------------------------------------
@@ -195,7 +199,7 @@ def get_embedding_info():
     return {"message": "This endpoint expects a POST request with a JSON body containing a text field. It returns a vector embedding of dimensions (768,)."}
 
 @app.post("/embeddings")
-async def handle_embedding(data: Data):
+async def handle_embedding(data: Text):
     embedding = await get_embedding(data.text, model)
     response_embedding = [str(x) for x in embedding]
     return {"embedding": response_embedding}
@@ -205,7 +209,9 @@ def get_tokens_info():
     return {"message": "This endpoint expects a POST request with a JSON body containing a text field. It returns the number of tokens."}
 
 @app.post("/tokens")
-async def handle_tokens(data: Data):
+async def handle_tokens(data: Text):
     tokens = get_tokens(data.text, tokenizer)
     token_len = len(tokens)
     return {"tokens": token_len}
+
+# @app.get(f"/semantic-qa/{doc_name}")
