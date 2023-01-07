@@ -137,6 +137,7 @@ def check_for_new_documents(documents, bucket_name):
         if name_no_ext not in [doc['name'] for doc in documents]:
             print(f"Downloading {s3_doc['name']} from S3 bucket")
             s3_client.download_file(bucket_name, s3_doc['key'], f"documents/{s3_doc['name']}")
+            documents.append({"name": name_no_ext, "path": f"documents/{s3_doc['name']}"})
 
 # ! Unpack Dict
 def unpack(doc_data: List[Dict]):
