@@ -20,4 +20,10 @@ __pycache__/
 # Ignore PEM files
 *.pem
 
+# Ignore Model files
 model.pt
+tokenizer.pt
+
+# Ignore aws
+aws/
+.aws/

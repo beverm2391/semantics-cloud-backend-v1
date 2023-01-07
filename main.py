@@ -19,6 +19,13 @@ from transformers import GPT2Tokenizer
 # ! Get Response Imports
 import openai
 
+# ! S3 Imports
+import boto3
+
+# ! Periodic Tasks
+from fastapi_utils.session import FastAPISessionMaker
+from fastapi_utils.tasks import repeat_every
+
 # ! START CONFIG -------------------------------------
 
 app = FastAPI()
@@ -57,16 +64,9 @@ except:
     print("Model Downloaded")
     torch.save(model, "model.pt")
 
-# ? Load Documents
-documents_folder_path = "documents/"
-# load all filepaths in the documents folder
-documents = []
-# { 'name' : "document name", 'path' : "filepath"}
-for item in os.listdir(documents_folder_path):
-    item_path = os.path.join(documents_folder_path, item)
-    item_name = item.split(".")[0]
-    temp = {"name": item_name, "path": item_path}
-    documents.append(temp)
+# ? Config S3
+s3_client = boto3.client('s3')
+s3_resource = boto3.resource('s3')
 
 # ! END CONFIG -------------------------------------
 # ! START CLASSES -------------------------------------
@@ -102,6 +102,41 @@ def load_doc(fpath: str):
         data = pickle.load(f)
     print("Complete")
     return data
+
+# ! Scan Local Documents
+def scan_local_documents():
+    documents_folder_path = "documents/"
+    # load all filepaths in the documents folder
+    documents = []
+    # { 'name' : "document name", 'path' : "filepath"}
+    for item in os.listdir(documents_folder_path):
+        item_path = os.path.join(documents_folder_path, item)
+        item_name = item.split(".")[0]
+        temp = {"name": item_name, "path": item_path}
+        documents.append(temp)
+    
+    return documents
+
+# ! Check S3 for new documents
+def check_for_new_documents(documents, bucket_name):
+    bucket = s3_resource.Bucket(bucket_name)
+    s3_documents = []
+    for obj in bucket.objects.all():
+        # documents/filename.pkl
+        filename = obj.key.split("/")[-1]
+        # filename with the extension
+        temp = {"name": filename, "key": obj.key}
+        s3_documents.append(temp)
+
+    print(s3_documents)
+
+    # ? Download New Documents from S3
+    for s3_doc in s3_documents:
+        # if s3 doc isnt local, download it
+        name_no_ext = s3_doc['name'].split(".")[0]
+        if name_no_ext not in [doc['name'] for doc in documents]:
+            print(f"Downloading {s3_doc['name']} from S3 bucket")
+            s3_client.download_file(bucket_name, s3_doc['key'], f"documents/{s3_doc['name']}")
 
 # ! Unpack Dict
 def unpack(doc_data: List[Dict]):
@@ -214,13 +249,26 @@ def build_prompt(query: str, context: List[Dict], *, examples=None) -> str:
     return prompt, context_pages
 
 # ! END FUNCTIONS -------------------------------------
+# ! START MAIN -------------------------------------
+
+# ? Load Documents, Check for new documents
+documents = scan_local_documents()
+check_for_new_documents(documents, "evertech-app")
+
+# ? sync the documents with S3 every 12 hours
+@app.on_event("startup")
+@repeat_every(seconds=60 * 60 * 12, wait_first=True)
+async def run_check_for_new_documents():
+    check_for_new_documents(documents, "evertech-app")
+    print('Synced all documents')
+
 # ! START ROUTES -------------------------------------
 @app.get("/")
 def root():
-    return {"message": "API is up and running. Use the /embeddings endpoint to generate singular embeddings."}
+    return {"message": "API is up and running."}
 
 @app.get("/embeddings")
-def get_embedding_info():
+def route_embedding_info():
     return {"message": "This endpoint expects a POST request with a JSON body containing a text field. It returns a vector embedding of dimensions (768,)."}
 
 @app.post("/embeddings")
@@ -230,7 +278,7 @@ async def handle_embedding(data: Text):
     return {"embedding": response_embedding}
 
 @app.get("/tokens")
-def get_tokens_info():
+def route_tokens_info():
     return {"message": "This endpoint expects a POST request with a JSON body containing a text field. It returns the number of tokens."}
 
 @app.post("/tokens")
@@ -239,8 +287,17 @@ async def handle_tokens(data: Text):
     token_len = len(tokens)
     return {"tokens": token_len}
 
+@app.get("/docs/list")
+def route_get_docs():
+    return {"message": "This endpoint returns a list of all the documents in the database.", "docs": [document['name'] for document in documents]}
+
+@app.get("/docs/sync")
+def handle_refresh_docs():
+    check_for_new_documents(documents, "evertech-app")
+    return {"message": "Documents have been refreshed."}
+
 @app.get("/semantic-qa")
-def get_semantic_qa_info():
+def route_semantic_qa_info():
     return {"message": "This endpoint expects a POST request with a JSON body containing a query and doc_name field. It returns a response to the query.", "availible_docs": [document['name'] for document in documents]}
 
 @app.post(f"/semantic-qa")
