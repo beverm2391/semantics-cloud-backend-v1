@@ -76,6 +76,8 @@ class Text(BaseModel):
 class Query(BaseModel):
     query: str
     doc_name: str
+    max_tokens: int
+    preset: str
 
 # ! END CLASSES -------------------------------------
 # ! START FUNCTIONS -------------------------------------
@@ -204,12 +206,13 @@ def get_tokens(text: str, tokenizer):
     return (len(tokens), elapsed)
 
 # ! Get Response from OpenAI
-def get_response(prompt: str) -> str:
+def get_response(prompt: str, temperature: float, max_tokens: int, model: str) -> str:
+    assert max_tokens <= 1000
     response = openai.Completion.create(
-        model="text-davinci-003",
+        model=model,
         prompt=prompt,
-        temperature=0,
-        max_tokens=1000,
+        temperature=temperature,
+        max_tokens=max_tokens,
     )
     return response['choices'][0]['text'].strip(" \n")
 
@@ -236,8 +239,15 @@ def get_formatted_context(context):
     return formatted_text, pages
 
 # ! Build the Prompt
-def build_prompt(query: str, context: List[Dict], *, examples=None) -> str:
-    header = "You are a college business management professor. You are teaching your students. Answer the query with a lengthy, deatiled reponse, to the best of your ability based on the provided context. If you want, include examples of how one should apply the concept to the real world. If you dont know something, say 'I don't know.' If the question doesn't make sense, say 'I don't understand the question. Can you please clarify?'"
+def build_prompt(query: str, context: List[Dict], preset: str, *, examples=None) -> str:
+    
+    if preset == 'longer':
+        preset_text = "You are a college business management professor. You are teaching your students. Answer the query with a lengthy, deatiled reponse, to the best of your ability based on the provided context. If you want, include examples of how one should apply the concept to the real world. If the question isn't relevant to the context, tell me that and briefly describe the context."
+    elif preset == 'shorter':
+        preset_text = "Give me a short, one  paragraph or less answer. Base your answer on the context provided. If the question isn't relevant to the context, tell me that and briefly describe the context."
+
+    header = preset_text
+
     book_text, context_pages = get_formatted_context(context)
 
     if examples is not None:
@@ -308,8 +318,14 @@ async def handle_semantic_qa(data: Query, examples=None):
     fpath = find_path(data.doc_name)
     doc_data = load_doc(fpath)
     context = get_context(data.query, doc_data)
-    prompt, context_pages = build_prompt(data.query, context, examples=examples)
-    response = get_response(prompt)
+
+    preset = data.preset
+
+    prompt, context_pages = build_prompt(data.query, context, preset, examples=examples)
+    
+    # ! DEBUG
+    print(f"Max Tokens: {data.max_tokens}, Preset: {data.preset}")
+    response = get_response(prompt, 0.7, data.max_tokens, "text-davinci-003")
 
     elapsed = time.perf_counter() - start
     tokens = get_tokens(prompt + response, tokenizer)[0]

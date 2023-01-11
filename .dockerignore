@@ -1,0 +1,29 @@
+# Ignore virtual environments
+venv/
+env/
+venv_env/
+venv2_env/
+venv3_env/
+
+# Ignore compiled Python files
+*.pyc
+
+# Ignore Python bytecode files
+__pycache__/
+*.py[cod]
+
+# Ignore environment files
+.env
+
+.DS_Store
+
+# Ignore PEM files
+*.pem
+
+# Ignore Model files
+model.pt
+tokenizer.pt
+
+# Ignore aws
+aws/
+.aws/
