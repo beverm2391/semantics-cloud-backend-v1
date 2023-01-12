@@ -1,15 +1,14 @@
 # Use the official Python image as the base image
-FROM python:3.9.9-alpine
+# FROM python:3.9.9-alpine
+FROM python:3.10-slim-bullseye
 
 # Set the working directory
-WORKDIR /multi-qa-mpnet-base-dot-v1-EC2
+WORKDIR /semantic-search-backend-v1
 
 # Copy the requirements file and install the dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the .env file and the application code
-COPY .env .
 COPY . .
 
 # Expose the port that the application will run on

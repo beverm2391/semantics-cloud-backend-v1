@@ -54,8 +54,9 @@ SQLAlchemy==1.4.46
 starlette==0.22.0
 threadpoolctl==3.1.0
 tokenizers==0.13.2
-torch==1.13.1
-torchvision==0.14.1
+--find-links https://download.pytorch.org/whl/torch_stable.html
+torch==1.13.1+cpu
+torchvision==0.14.1+cpu
 tqdm==4.64.1
 transformers==4.25.1
 types-pytz==2022.7.0.0

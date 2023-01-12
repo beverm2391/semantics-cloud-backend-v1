@@ -43,8 +43,13 @@ app.add_middleware(
 )
 
 load_dotenv(".env")
-api_key = os.environ.get('OPENAI-API-KEY')
-openai.api_key = api_key
+# ! GET SECRETS
+OPENAI_API_KEY = os.environ.get('OPENAI-API-KEY')
+AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
+
+# ! Set OpenAI Key
+openai.api_key = OPENAI_API_KEY
 
 # ? Tokenizer
 try:
@@ -65,8 +70,19 @@ except:
     torch.save(model, "model.pt")
 
 # ? Config S3
-s3_client = boto3.client('s3')
-s3_resource = boto3.resource('s3')
+
+s3_client = boto3.client(
+    's3',
+    aws_access_key_id=AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+)
+
+s3_resource = boto3.resource(
+    's3',
+    aws_access_key_id=AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+)
+
 
 # ! END CONFIG -------------------------------------
 # ! START CLASSES -------------------------------------

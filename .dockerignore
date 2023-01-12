@@ -1,6 +1,4 @@
 # Ignore virtual environments
-venv/
-env/
 venv_env/
 venv2_env/
 venv3_env/
@@ -17,9 +15,11 @@ __pycache__/
 # Ignore PEM files
 *.pem
 
+.env
+
 # Ignore Model files
-model.pt
-tokenizer.pt
+# model.pt
+# tokenizer.pt
 
 .requirements-new-3_7.txt
 
