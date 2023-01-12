@@ -12,9 +12,6 @@ venv3_env/
 __pycache__/
 *.py[cod]
 
-# Ignore environment files
-.env
-
 .DS_Store
 
 # Ignore PEM files
@@ -23,6 +20,8 @@ __pycache__/
 # Ignore Model files
 model.pt
 tokenizer.pt
+
+.requirements-new-3_7.txt
 
 # Ignore aws
 aws/
